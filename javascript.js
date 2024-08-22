@@ -1,5 +1,6 @@
 const BLACK_PIECE_COLOR = "#0f0f0f"
 const RED_PIECE_COLOR = "#fc2419"
+const PIECE_BORDER_COLOR = "#323232"
 const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
 
@@ -16,7 +17,7 @@ function create_board()
     
     visual_board.style.height = "80vmin"
     visual_board.style.width = visual_board.style.height 
-    visual_board.addEventListener("click", (e) => handle_click(e))
+    visual_board.addEventListener("mousedown", (e) => handle_click(e))
 
     let tile_size = "height:" + 10 + "vmin; width: " + 10 + "vmin; "
 
@@ -46,13 +47,44 @@ function create_board()
 }
 
 
+
+//EVENT HANDLER
 function handle_click(e)
 {
-    if(!set_selected_tile(e))
-        set_selected_piece(e)
+    set_selected_piece(e)
+    if(selected_piece != undefined)
+        set_selected_tile(e)
 
+    if(selected_piece != undefined && selected_tile != undefined)
+        move_piece(game_board)
 }
 
+//EVENT HANDLER
+//moves the pieces selected_piece to selected_tile (both are global vars)   
+//removes the border indicating selected piece is selected, updates 
+//game_board and sets both global vars to undefined.
+function move_piece(game_board)
+{
+    orig_row = selected_piece.parentNode.dataset.row
+    orig_col = selected_piece.parentNode.dataset.col
+
+    dest_row = selected_tile.dataset.row
+    dest_col = selected_tile.dataset.col
+
+    selected_piece.parentNode.removeChild(selected_piece)
+    selected_tile.appendChild(selected_piece)
+    selected_piece.style.borderColor = PIECE_BORDER_COLOR
+
+    game_board[orig_row][orig_col][1] = game_board[dest_row][dest_col][1]; 
+
+    selected_piece = undefined
+    selected_tile  = undefined
+}
+
+//EVENT HANDLER
+//if the global variable selected_tile is undefined and
+//a tile was clicked on this function sets selected_tile to the
+//tile that was clicked on. Otherwise it does nothing.
 function set_selected_tile(e)
 {
     //don't let them select a tile with a piece on it
@@ -64,13 +96,13 @@ function set_selected_tile(e)
         return false;
     
     if(selected_tile != undefined)
-        selected_tile.style.borderColor = "#323232"
+        selected_tile.style.borderColor = PIECE_BORDER_COLOR 
 
     selected_tile = e.target
-    selected_tile.style.borderColor = "gold"
 }
 
 
+//returns the tile that was clicked on (if a tile was clicked on)
 function set_selected_piece(e)
 {
     if(!e.target.classList.contains("piece"))
@@ -80,8 +112,7 @@ function set_selected_piece(e)
     let col = e.target.parentNode.dataset.col
     //update the selected piece and set the previously selected piece back to unselected. 
     if(selected_piece != undefined)
-        selected_piece.style.borderColor = "#323232"
-
+        selected_piece.style.borderColor = PIECE_BORDER_COLOR
     game_board[row][col][0].firstChild.style.borderColor = "white"
     selected_piece = game_board[row][col][0].firstChild
 }
