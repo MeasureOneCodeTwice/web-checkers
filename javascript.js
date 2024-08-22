@@ -1,9 +1,10 @@
 const BLACK_PIECE_COLOR = "#0f0f0f"
 const RED_PIECE_COLOR = "#fc2419"
 const BOARD_SIZE = 8;
-const colors = [ "red", "black" ]
+const BOARD_COLORS = [ "red", "black" ]
 
-game_board = create_board()
+let selected_piece = undefined;
+let game_board = create_board()
 init_board(game_board)
 
 function create_board()
@@ -14,25 +15,24 @@ function create_board()
     
     visual_board.style.height = "80vmin"
     visual_board.style.width = visual_board.style.height 
+    visual_board.addEventListener("click", (e) => set_selected_piece(e))
 
     let tile_size = "height:" + 10 + "vmin; width: " + 10 + "vmin; "
 
-            let tile_num = 0
     for (let i = 0; i < BOARD_SIZE; i++)
     {
         for (let j = 0; j < BOARD_SIZE; j++)
         {
-
-            let background_color = "background-color: " + colors[(i + j ) % 2] + ";";
-
-
-
+            let background_color = "background-color: " + BOARD_COLORS[(i + j ) % 2] + ";";
             let tile = document.createElement("div")
             tile.setAttribute("style", tile_size + background_color)
             tile.classList.add("tile") 
 
             if( ( i + j ) % 2 == 1) {
-                mem_board[i][Math.floor(j / 2)][1] = tile; 
+                mem_board[i][Math.floor(j / 2)][0] = tile; 
+                mem_board[i][Math.floor(j / 2)][1] = 0; 
+                tile.dataset.row = i
+                tile.dataset.col = Math.floor(j / 2)
             }
 
             visual_board.appendChild(tile)
@@ -42,6 +42,19 @@ function create_board()
 }
 
 
+function set_selected_piece(e)
+{
+    if(e.target.classList.contains("piece"))
+    {
+        let row = e.target.parentNode.dataset.row
+        let col = e.target.parentNode.dataset.col
+        //update the selected piece and set the previously selected piece back to unselected. 
+        if(selected_piece != undefined)
+            game_board[ selected_piece[0] ][ selected_piece[1] ][0].firstChild.style.borderColor = "#323232"
+        game_board[row][col][0].firstChild.style.borderColor = "white"
+        selected_piece = [row, col]
+    }
+}
 
 function create_piece(color, isPromoted)
 {
@@ -62,23 +75,21 @@ function init_board(board)
     {
         for (let j = 0; j < BOARD_SIZE / 2; j++)
         {
+            let piece = create_piece(RED_PIECE_COLOR, false) 
+            board[row][j][0].appendChild(piece)
+            board[row][j][1] = 0000
 
-            //msb is is the piece is promoted, lsb is the colour of the piece.
-            
-            board[row][j][1].appendChild(create_piece(RED_PIECE_COLOR, false) )
-            board[row][j][0] = 010
-
-            
-            board[BOARD_SIZE - row - 1][j][0] = 000
-            board[BOARD_SIZE - row - 1][j][1].appendChild(create_piece(BLACK_PIECE_COLOR, false) )
+            piece = create_piece(BLACK_PIECE_COLOR, false) 
+            board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
+            board[BOARD_SIZE - row - 1][j][1] = 0001
         }
     }
 }
 
 
-
-//the first element of each "tile" in the 2d array is the type of tile that is on the tile
-//and the second is the tile DOM object. This array only holds the black tiles. 
+//the first element of each entry in the 2d array is the tile.
+//The second is information about the piece on the tile
+// 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
 function get_empty_board()
 {
     let mem_board = new Array(BOARD_SIZE)
