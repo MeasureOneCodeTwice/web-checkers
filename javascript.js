@@ -4,6 +4,7 @@ const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
 
 let selected_piece = undefined;
+let selected_tile   = undefined;
 let game_board = create_board()
 init_board(game_board)
 
@@ -15,7 +16,7 @@ function create_board()
     
     visual_board.style.height = "80vmin"
     visual_board.style.width = visual_board.style.height 
-    visual_board.addEventListener("click", (e) => set_selected_piece(e))
+    visual_board.addEventListener("click", (e) => handle_click(e))
 
     let tile_size = "height:" + 10 + "vmin; width: " + 10 + "vmin; "
 
@@ -33,6 +34,9 @@ function create_board()
                 mem_board[i][Math.floor(j / 2)][1] = 0; 
                 tile.dataset.row = i
                 tile.dataset.col = Math.floor(j / 2)
+            } else {
+                tile.dataset.row = undefined
+                tile.dataset.col = undefined
             }
 
             visual_board.appendChild(tile)
@@ -42,18 +46,44 @@ function create_board()
 }
 
 
+function handle_click(e)
+{
+    if(!set_selected_tile(e))
+        set_selected_piece(e)
+
+}
+
+function set_selected_tile(e)
+{
+    //don't let them select a tile with a piece on it
+    //or a red tile.
+    if(e.target.firstChild != null ||
+        !e.target.classList.contains("tile") ||
+        e.target.dataset.row == "undefined"
+    ) 
+        return false;
+    
+    if(selected_tile != undefined)
+        selected_tile.style.borderColor = "#323232"
+
+    selected_tile = e.target
+    selected_tile.style.borderColor = "gold"
+}
+
+
 function set_selected_piece(e)
 {
-    if(e.target.classList.contains("piece"))
-    {
-        let row = e.target.parentNode.dataset.row
-        let col = e.target.parentNode.dataset.col
-        //update the selected piece and set the previously selected piece back to unselected. 
-        if(selected_piece != undefined)
-            game_board[ selected_piece[0] ][ selected_piece[1] ][0].firstChild.style.borderColor = "#323232"
-        game_board[row][col][0].firstChild.style.borderColor = "white"
-        selected_piece = [row, col]
-    }
+    if(!e.target.classList.contains("piece"))
+        return false;
+
+    let row = e.target.parentNode.dataset.row
+    let col = e.target.parentNode.dataset.col
+    //update the selected piece and set the previously selected piece back to unselected. 
+    if(selected_piece != undefined)
+        selected_piece.style.borderColor = "#323232"
+
+    game_board[row][col][0].firstChild.style.borderColor = "white"
+    selected_piece = game_board[row][col][0].firstChild
 }
 
 function create_piece(color, isPromoted)
