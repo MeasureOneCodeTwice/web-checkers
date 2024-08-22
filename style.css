@@ -1,0 +1,44 @@
+@media only screen and (min-width: 800px)
+{
+
+}
+
+* {
+    margin: 0
+}
+
+#website-container
+{
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#checker-board
+{
+    background-color: blue;
+    display: flex;
+    flex-wrap: wrap;
+    border: solid;
+}
+
+.tile
+{
+    box-sizing: border-box;
+    border: solid;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.piece
+{
+    background-color: white;
+    height: 85%;
+    width: 85%;
+    border-radius: 100%;
+    border: dotted;
+}
