@@ -49,8 +49,65 @@ function valid_move(game_board, origin, dest)
     //moving a red or black piece one tile up or down respectively
     //jumping a piece of the opposite colour
     //chain jumping 
-    //ending move on the end of the board (promote)
+    //ending move on the end of the board (promote) <-- should not be handled by this function
+    //
+    //if the row is even you can move to a column less than to or equal to the current column
+    //if the row is odd  you can move to a column greater than to or equal to the current column
 
+    // 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
+    let orig_full = (game_board[origin[0]][origin[1]][1] & 0b0100) > 0;
+    let dest_full = (game_board[dest[0]][dest[1]][1] & 0b0100) > 0;
+    if(!orig_full || dest_full)
+    {
+        alert("orig full: " + orig_full)
+        alert("dest full: " + dest_full)
+        return false;
+    }
+
+    //determine which colmuns the piece can move to.
+    let row_even      = origin[0] % 2 == 0
+    let valid_cols
+    if(row_even)
+        valid_cols = [ +origin[1] + 1, origin[1] ]
+    else 
+        valid_cols = [ +origin[1] - 1, origin[1] ]
+
+
+    let black_piece = (game_board[origin[0]][origin[1]][1] & 0b0010) > 0
+    let is_promoted = (game_board[origin[0]][origin[1]][1] & 0b0001) > 0
+    let valid_rows 
+    if(is_promoted) {
+        valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
+    } else { 
+        if(black_piece)
+            valid_rows = [ +origin[0] - 1 ]
+        else
+            valid_rows = [ +origin[0] + 1 ]
+    }
+
+    //check if dest matches a combination of valid column and valid row
+    let valid_row = false;
+    for (let i = 0; i < valid_rows.length; i++) {
+        if(dest[0] == valid_rows[i]) {
+            valid_row = true;
+            break;
+        }
+    }
+
+    let valid_column = false;
+    for (let i = 0; i < valid_cols.length; i++) {
+        if(dest[1] == valid_cols[i]) {
+            valid_column = true;
+            break;
+        }
+    }
+
+    //make sure the column and row fit on the board
+    let off_board = false;
+    off_board = off_board || dest[0] < 0 || dest[0] > game_board.length - 1
+    off_board = off_board || dest[1] < 0 || dest[1] > game_board[0].length - 1
+
+    return valid_column && valid_row && !off_board
 }
 
 //EVENT HANDLER
@@ -77,17 +134,22 @@ function handle_click(e, game_board, selected_piece, selected_tile)
 //game_board and sets both global vars to undefined.
 function move_piece(game_board, selected_piece, selected_tile)
 {
+
     let orig_row = selected_piece.parentNode.dataset.row
     let orig_col = selected_piece.parentNode.dataset.col
 
     let dest_row = selected_tile.dataset.row
     let dest_col = selected_tile.dataset.col
 
-    selected_piece.parentNode.removeChild(selected_piece)
-    selected_tile.appendChild(selected_piece)
-    selected_piece.style.borderColor = PIECE_BORDER_COLOR
+    if(valid_move( game_board, [ orig_row, orig_col ], [dest_row, dest_col ]) ) {
+        selected_piece.parentNode.removeChild(selected_piece)
+        selected_tile.appendChild(selected_piece)
 
-    game_board[orig_row][orig_col][1] = game_board[dest_row][dest_col][1]; 
+        game_board[dest_row][dest_col][1] = game_board[orig_row][orig_col][1]; 
+        game_board[orig_row][orig_col][1] = 0b0000;
+    }
+
+    selected_piece.style.borderColor = PIECE_BORDER_COLOR
 }
 
 //EVENT HANDLER
@@ -144,6 +206,7 @@ function create_piece(color, isPromoted)
 }
 
 //sets up a game of checkers
+// 0b 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
 function init_board(board)
 {
     for (let row = 0; row < 3; row++)
@@ -152,11 +215,11 @@ function init_board(board)
         {
             let piece = create_piece(RED_PIECE_COLOR, false) 
             board[row][j][0].appendChild(piece)
-            board[row][j][1] = 0000
+            board[row][j][1] = 0b0100
 
             piece = create_piece(BLACK_PIECE_COLOR, false) 
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
-            board[BOARD_SIZE - row - 1][j][1] = 0001
+            board[BOARD_SIZE - row - 1][j][1] = 0b0110
         }
     }
 }
@@ -164,7 +227,6 @@ function init_board(board)
 
 //the first element of each entry in the 2d array is the tile.
 //The second is information about the piece on the tile
-// 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
 function get_empty_board()
 {
     let mem_board = new Array(BOARD_SIZE)
