@@ -4,10 +4,7 @@ const PIECE_BORDER_COLOR = "#323232"
 const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
 
-let selected_piece = undefined;
-let selected_tile   = undefined;
-let game_board = create_board()
-init_board(game_board)
+main()
 
 function create_board()
 {
@@ -17,7 +14,6 @@ function create_board()
     
     visual_board.style.height = "80vmin"
     visual_board.style.width = visual_board.style.height 
-    visual_board.addEventListener("mousedown", (e) => handle_click(e))
 
     let tile_size = "height:" + 10 + "vmin; width: " + 10 + "vmin; "
 
@@ -36,85 +32,103 @@ function create_board()
                 tile.dataset.row = i
                 tile.dataset.col = Math.floor(j / 2)
             } else {
-                tile.dataset.row = undefined
-                tile.dataset.col = undefined
+                tile.dataset.red = true 
             }
 
             visual_board.appendChild(tile)
         }
     }
-    return mem_board;
+    return [mem_board, visual_board];
 }
 
 
+function valid_move(game_board, origin, dest)
+{
+    //CASES
+    //not jumping when jumping is manditory
+    //moving a red or black piece one tile up or down respectively
+    //jumping a piece of the opposite colour
+    //chain jumping 
+    //ending move on the end of the board (promote)
+
+}
 
 //EVENT HANDLER
-function handle_click(e)
+//really wish i had pointers for this function.
+function handle_click(e, game_board, selected_piece, selected_tile)
 {
-    set_selected_piece(e)
-    if(selected_piece != undefined)
-        set_selected_tile(e)
+    selected_piece = set_selected_piece(e, selected_piece)
+    if(selected_piece  != undefined)
+        selected_tile = set_selected_tile(e, selected_tile)
 
-    if(selected_piece != undefined && selected_tile != undefined)
-        move_piece(game_board)
+     if(selected_piece != undefined && selected_tile != undefined)
+     {
+         move_piece(game_board, selected_piece, selected_tile)
+         selected_tile = undefined
+         selected_piece = undefined
+     }
+
+    return [ selected_piece, selected_tile ]
 }
 
 //EVENT HANDLER
 //moves the pieces selected_piece to selected_tile (both are global vars)   
 //removes the border indicating selected piece is selected, updates 
 //game_board and sets both global vars to undefined.
-function move_piece(game_board)
+function move_piece(game_board, selected_piece, selected_tile)
 {
-    orig_row = selected_piece.parentNode.dataset.row
-    orig_col = selected_piece.parentNode.dataset.col
+    let orig_row = selected_piece.parentNode.dataset.row
+    let orig_col = selected_piece.parentNode.dataset.col
 
-    dest_row = selected_tile.dataset.row
-    dest_col = selected_tile.dataset.col
+    let dest_row = selected_tile.dataset.row
+    let dest_col = selected_tile.dataset.col
 
     selected_piece.parentNode.removeChild(selected_piece)
     selected_tile.appendChild(selected_piece)
     selected_piece.style.borderColor = PIECE_BORDER_COLOR
 
     game_board[orig_row][orig_col][1] = game_board[dest_row][dest_col][1]; 
-
-    selected_piece = undefined
-    selected_tile  = undefined
 }
 
 //EVENT HANDLER
 //if the global variable selected_tile is undefined and
 //a tile was clicked on this function sets selected_tile to the
 //tile that was clicked on. Otherwise it does nothing.
-function set_selected_tile(e)
+function set_selected_tile(e, selected_tile)
 {
     //don't let them select a tile with a piece on it
     //or a red tile.
-    if(e.target.firstChild != null ||
-        !e.target.classList.contains("tile") ||
-        e.target.dataset.row == "undefined"
-    ) 
-        return false;
-    
-    if(selected_tile != undefined)
-        selected_tile.style.borderColor = PIECE_BORDER_COLOR 
+    if( e.target.firstChild == null && 
+        e.target.classList.contains("tile") &&
+        e.target.dataset.red != "true"
+      ) {
+        selected_tile = e.target
+    }
 
-    selected_tile = e.target
+    return selected_tile; 
 }
 
 
 //returns the tile that was clicked on (if a tile was clicked on)
-function set_selected_piece(e)
+function set_selected_piece(e, selected_piece)
 {
-    if(!e.target.classList.contains("piece"))
-        return false;
+    if(e.target.classList.contains("piece"))
+    {
+        //update the selected piece and set the previously selected piece back to unselected. 
+        if(selected_piece != undefined)
+            selected_piece.style.borderColor = PIECE_BORDER_COLOR
 
-    let row = e.target.parentNode.dataset.row
-    let col = e.target.parentNode.dataset.col
-    //update the selected piece and set the previously selected piece back to unselected. 
-    if(selected_piece != undefined)
-        selected_piece.style.borderColor = PIECE_BORDER_COLOR
-    game_board[row][col][0].firstChild.style.borderColor = "white"
-    selected_piece = game_board[row][col][0].firstChild
+        if(selected_piece != e.target)
+        {
+            selected_piece = e.target
+            selected_piece.style.borderColor = "white"
+        } else {
+            //clicked on the selected piece so, unselect it.
+            selected_piece = undefined;
+        }
+    }
+
+    return selected_piece
 }
 
 function create_piece(color, isPromoted)
@@ -162,4 +176,18 @@ function get_empty_board()
     }
 
     return mem_board;
+}
+
+function main() {
+
+    let selected_piece = undefined;
+    let selected_tile   = undefined;
+
+    let [ game_board, board_object ] = create_board()
+
+    board_object.addEventListener("mousedown", (e) => {
+        [ selected_piece, selected_tile ] = handle_click(e, game_board, selected_piece, selected_tile);
+    })
+
+    init_board(game_board)
 }
