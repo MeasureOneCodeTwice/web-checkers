@@ -48,8 +48,9 @@ function create_board()
 //really wish i had pointers for this function.
 function handle_click(e, game_board, selected_piece, selected_tile)
 {
+    //the selected piece will be changed (or not) based on the target of the event
     selected_piece = set_selected_piece(e, selected_piece)
-    if(selected_piece  != undefined)
+    if(selected_piece != undefined)
         selected_tile = set_selected_tile(e, selected_tile)
 
      if(selected_piece != undefined && selected_tile != undefined)
@@ -93,8 +94,8 @@ function valid_non_skip(game_board, origin, dest)
     let valid_cols = adjacent_columns(origin)
 
 
-    let is_valid_row = check_matching_move(dest[0], valid_rows);
-    let is_valid_col = check_matching_move(dest[1], valid_cols);
+    let is_valid_row = exists_matching_move(dest[0], valid_rows);
+    let is_valid_col = exists_matching_move(dest[1], valid_cols);
 
     //make sure the column and row fit on the board
     let off_board = false;
@@ -118,8 +119,8 @@ function valid_skip(game_board, origin, dest)
     else 
         valid_rows = [ +origin[0] + 2 - (4 * black_piece)]
 
-    let is_valid_row    = check_matching_move(dest[0], valid_rows);
-    let is_valid_col    = check_matching_move(dest[1], valid_cols);
+    let is_valid_row    = exists_matching_move(dest[0], valid_rows);
+    let is_valid_col    = exists_matching_move(dest[1], valid_cols);
 
     //make sure the column and row fit on the board
     let off_board = false;
@@ -147,19 +148,21 @@ function valid_skip(game_board, origin, dest)
     return [ jumping_valid_tile, jumped_tile_coords ]    
 }
 
-function check_matching_move(testing, valid_choices)
+function exists_matching_move(testing, valid_choices)
 {
-    let valid = false;
     for (let i = 0; i < valid_choices.length; i++) {
         if(testing == valid_choices[i]) {
-            valid = true;
-            break;
+            return true;
         }
     }
-    return valid;
+    return false;
 }
 
-function valid_move(game_board, origin, dest)
+//checks if a move is valid and returns an array.
+//the first element is if the move is valid. 
+//the second is the tile that was skipped over if the move
+//was a skip
+function is_valid_move(game_board, origin, dest)
 {
     if(valid_non_skip(game_board, origin, dest)) {
         return [ true, undefined]
@@ -180,21 +183,27 @@ function move_piece(game_board, selected_piece, selected_tile)
     let dest_row = selected_tile.dataset.row
     let dest_col = selected_tile.dataset.col
 
-    let [ valid, jumped ] = valid_move( game_board, [ orig_row, orig_col ], [dest_row, dest_col ]) 
-    if(valid) {
-        selected_piece.parentNode.removeChild(selected_piece)
-        selected_tile.appendChild(selected_piece)
+    let [ valid, jumped ] = is_valid_move( game_board, [ orig_row, orig_col ], [dest_row, dest_col ]) 
 
-        game_board[dest_row][dest_col][1] = game_board[orig_row][orig_col][1]; 
-        game_board[orig_row][orig_col][1] = 0b0000;
+    //change the border color of the piece to unselected.
+    if(!valid)
+    {
+        selected_piece.style.borderColor = selected_piece.dataset.appropriateBorderColor 
+        return
+    }
 
-        //end of board, should promote to king.
-        if(dest_row == 0 || dest_row == BOARD_SIZE - 1)
-        {
-            game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
-            game_board[dest_row][dest_col][0].firstChild.dataset.appropriateBorderColor = "gold"
-        }
+    //update the board.
+    selected_piece.parentNode.removeChild(selected_piece)
+    selected_tile.appendChild(selected_piece)
 
+    game_board[dest_row][dest_col][1] = game_board[orig_row][orig_col][1]; 
+    game_board[orig_row][orig_col][1] = 0b0000;
+
+    //end of board, should promote to king.
+    if(dest_row == 0 || dest_row == BOARD_SIZE - 1)
+    {
+        game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
+        game_board[dest_row][dest_col][0].firstChild.dataset.appropriateBorderColor = "gold"
     }
 
     //remove the piece that was jumped
@@ -214,14 +223,11 @@ function move_piece(game_board, selected_piece, selected_tile)
 //tile that was clicked on. Otherwise it does nothing.
 function set_selected_tile(e, selected_tile)
 {
-    //don't let them select a tile with a piece on it
-    //or a red tile.
+    //don't let the player select a tile with a piece on it or a red tile.
     if( e.target.firstChild == null && 
         e.target.classList.contains("tile") &&
         e.target.dataset.red != "true"
-      ) {
-        selected_tile = e.target
-    }
+       ) selected_tile = e.target
 
     return selected_tile; 
 }
@@ -230,26 +236,27 @@ function set_selected_tile(e, selected_tile)
 //returns the tile that was clicked on (if a tile was clicked on)
 function set_selected_piece(e, selected_piece)
 {
-    if(e.target.classList.contains("piece"))
-    {
-        //update the selected piece and set the previously selected piece back to unselected. 
-        if(selected_piece != undefined)
-            selected_piece.style.borderColor = selected_piece.dataset.appropriateBorderColor
+    //do not change the selected piece 
+    if(!e.target.classList.contains("piece"))
+        return selected_piece
 
-        if(selected_piece != e.target)
-        {
-            selected_piece = e.target
-            selected_piece.style.borderColor = "white"
-        } else {
-            //clicked on the selected piece so, unselect it.
-            selected_piece = undefined;
-        }
+    //update the selected piece and set the previously selected piece back to unselected. 
+    if(selected_piece != undefined)
+        selected_piece.style.borderColor = selected_piece.dataset.appropriateBorderColor
+
+    if(selected_piece != e.target)
+    {
+        selected_piece = e.target
+        selected_piece.style.borderColor = "white"
+    } else {
+        //clicked on the selected piece so, unselect it.
+        selected_piece = undefined;
     }
 
     return selected_piece
 }
 
-function create_piece(color, isPromoted)
+function create_piece(color)
 {
     piece = document.createElement("div")
     piece.classList.add("piece")
@@ -260,12 +267,6 @@ function create_piece(color, isPromoted)
     else
         piece.dataset.appropriateBorderColor = BLACK_PIECE_BORDER_COLOR 
 
-    if(isPromoted)
-    {
-        piece.style.borderColor = "gold"
-        piece.dataset.appropriateBorderColor = "gold"
-    }
-
     piece.style.borderColor = piece.dataset.appropriateBorderColor 
 
     return piece
@@ -275,15 +276,14 @@ function create_piece(color, isPromoted)
 // 0b 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
 function init_board(board)
 {
-    for (let row = 0; row < 3; row++)
-    {
-        for (let j = 0; j < BOARD_SIZE / 2; j++)
-        {
-            let piece = create_piece(RED_PIECE_COLOR, false) 
+    for (let row = 0; row < 3; row++) {
+        for (let j = 0; j < BOARD_SIZE / 2; j++) {
+
+            let piece = create_piece(RED_PIECE_COLOR) 
             board[row][j][0].appendChild(piece)
             board[row][j][1] = 0b0100
 
-            piece = create_piece(BLACK_PIECE_COLOR, false) 
+            piece = create_piece(BLACK_PIECE_COLOR) 
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
             board[BOARD_SIZE - row - 1][j][1] = 0b0110
         }
@@ -295,15 +295,15 @@ function init_board(board)
 //The second is information about the piece on the tile
 function get_empty_board()
 {
-    let mem_board = new Array(BOARD_SIZE)
-    for (let i = 0; i < mem_board.length; i++)
+    let board = new Array(BOARD_SIZE)
+    for (let i = 0; i < board.length; i++)
     {
-        mem_board[i] = new Array(BOARD_SIZE / 2)
+        board[i] = new Array(BOARD_SIZE / 2)
         for (let j = 0; j < BOARD_SIZE / 2; j++)
-            mem_board[i][j] = [undefined, undefined]
+            board[i][j] = [undefined, undefined]
     }
 
-    return mem_board;
+    return board;
 }
 
 function main() {
