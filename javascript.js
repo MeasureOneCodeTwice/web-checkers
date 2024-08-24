@@ -1,6 +1,7 @@
-const BLACK_PIECE_COLOR = "#0f0f0f"
+const BLACK_PIECE_COLOR = "#2f2f2f"
 const RED_PIECE_COLOR = "#fc2419"
-const PIECE_BORDER_COLOR = "#323232"
+const BLACK_PIECE_BORDER_COLOR = "#5f5f5f"
+const RED_PIECE_BORDER_COLOR = "#553535"
 const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
 
@@ -15,7 +16,7 @@ function create_board()
     visual_board.style.height = "80vmin"
     visual_board.style.width = visual_board.style.height 
 
-    let tile_size = "height:" + 10 + "vmin; width: " + 10 + "vmin; "
+    let tile_size = "height:" + (80 / BOARD_SIZE) + "vmin; width: " + (80 / BOARD_SIZE) + "vmin; "
 
     for (let i = 0; i < BOARD_SIZE; i++)
     {
@@ -62,6 +63,11 @@ function handle_click(e, game_board, selected_piece, selected_tile)
 
 }
 
+function adjacent_columns(pos)
+{
+    return pos[0] % 2 == 0 ? [ pos[1], +pos[1] + 1 ] : [ pos[1] - 1, pos[1] ]
+}
+
 //checks if a move is a valid non-jump move.
 function valid_non_skip(game_board, origin, dest)
 {
@@ -73,91 +79,72 @@ function valid_non_skip(game_board, origin, dest)
         return false;
     }
 
-    //determine which colmuns the piece can move to.
-    let row_even      = origin[0] % 2 == 0
-    let valid_cols
-    if(row_even)
-        valid_cols = [ +origin[1] + 1, origin[1] ]
-    else 
-        valid_cols = [ +origin[1] - 1, origin[1] ]
-
 
     let black_piece = (game_board[origin[0]][origin[1]][1] & 0b0010) > 0
     let is_promoted = (game_board[origin[0]][origin[1]][1] & 0b0001) > 0
-    let valid_rows 
-    if(is_promoted) {
-        valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
-    } else { 
-        if(black_piece)
-            valid_rows = [ +origin[0] - 1 ]
-        else
-            valid_rows = [ +origin[0] + 1 ]
-    }
 
-    let valid_row    = check_matching_move(dest[0], valid_rows);
-    let valid_col= check_matching_move(dest[1], valid_cols);
+    let valid_rows 
+    if(is_promoted)
+        valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
+    else 
+        valid_rows = [ +origin[0] + 1 - ( 2 * black_piece) ]
+
+    //determine which colmuns the piece can move to.
+    let valid_cols = adjacent_columns(origin)
+
+
+    let is_valid_row = check_matching_move(dest[0], valid_rows);
+    let is_valid_col = check_matching_move(dest[1], valid_cols);
 
     //make sure the column and row fit on the board
     let off_board = false;
     off_board = off_board || dest[0] < 0 || dest[0] > game_board.length - 1
     off_board = off_board || dest[1] < 0 || dest[1] > game_board[0].length - 1
 
-    return valid_col && valid_row && !off_board
+    return is_valid_col && is_valid_row && !off_board
 }
 
 //checks if a move is a valid single skip
 function valid_skip(game_board, origin, dest)
 {
     // 0b a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
-    let valid_rows
     let black_piece =  (game_board[origin[0]][origin[1]][1] & 0b010) > 0
-    if((game_board[origin[0]][origin[1]][1] & 0b001) == 0b001) {
-        valid_rows = [ +origin[0] + 2, origin[0] - 2 ]
-    } else if(black_piece) {
-        valid_rows = [ +origin[0] - 2 ]
-    } else {
-        valid_rows = [ +origin[0] + 2 ]
-    }
+    let is_promoted =  (game_board[origin[0]][origin[1]][1] & 0b001) > 0
 
     let valid_cols = [+origin[1] + 1, +origin[1] - 1]
+    let valid_rows
+    if(is_promoted) 
+        valid_rows = [ +origin[0] + 2, origin[0] - 2 ]
+    else 
+        valid_rows = [ +origin[0] + 2 - (4 * black_piece)]
 
-    let valid_row    = check_matching_move(dest[0], valid_rows);
-    let valid_col    = check_matching_move(dest[1], valid_cols);
-
-    if(!valid_row || !valid_col)
-        return [ false, undefined ]
+    let is_valid_row    = check_matching_move(dest[0], valid_rows);
+    let is_valid_col    = check_matching_move(dest[1], valid_cols);
 
     //make sure the column and row fit on the board
     let off_board = false;
     off_board = off_board || dest[0] < 0 || dest[0] > game_board.length - 1
     off_board = off_board || dest[1] < 0 || dest[1] > game_board[0].length - 1
 
-    //check if we're actually juming a piece
-    let hor_dir = dest[1] - origin[1] 
-    //normalize
-    hor_dir /= Math.abs(hor_dir)
-    let ver_dir = dest[0] - origin[0]
-    ver_dir /= Math.abs(ver_dir)
+    if(!is_valid_row || !is_valid_col || off_board)
+        return [ false, undefined ]
 
-    let opposite_color = black_piece ? 0b000 : 0b010
-    let possible_cols 
-    if(origin[0] % 2 == 0)
-        possible_cols = [ +origin[1], +origin[1] + 1 ]
-    else 
-        possible_cols = [ +origin[1] - 1, origin[1] ]
 
-    let jumped_col
-    if(hor_dir < 0)
-        jumped_col = possible_cols[0] 
-    else
-        jumped_col = possible_cols[1] 
+    //check the tile we are jumping over has a piece of the opposite colour
+    let hor_dir = (dest[1] - origin[1]) / Math.abs(dest[1] - origin[1])
+    let possible_cols = adjacent_columns(origin)
+    let jumped_col = possible_cols[ +(hor_dir > 0) ] 
 
-    let jumped_pos = [+origin[0] + +ver_dir, jumped_col] 
-    let jumped_tile = game_board[jumped_pos[0]][jumped_pos[1]][1]
+    let ver_dir = (dest[0] - origin[0]) / Math.abs(dest[0] - origin[0])
+    let jumped_tile_coords = [+origin[0] + +ver_dir, jumped_col] 
 
-    jumping_valid_tile = (jumped_tile & 0b0100) > 0 && (jumped_tile & 0b0010) == opposite_color
+    let jumped_tile = game_board[jumped_tile_coords[0]][jumped_tile_coords[1]][1]
+    let jumping_tile = game_board[origin[0]][origin[1]][1]
 
-    return [ valid_col && valid_row && !off_board && jumping_valid_tile, jumped_pos ]    
+    //checking if the there is a piece on the jumped tile && the piece on the jumped tile is not the same colour.
+    jumping_valid_tile = (jumped_tile & 0b0100) > 0 && (jumped_tile & 0b0010) != (jumping_tile & 0b0010)
+
+    return [ jumping_valid_tile, jumped_tile_coords ]    
 }
 
 function check_matching_move(testing, valid_choices)
@@ -205,11 +192,12 @@ function move_piece(game_board, selected_piece, selected_tile)
         if(dest_row == 0 || dest_row == BOARD_SIZE - 1)
         {
             game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
-            game_board[dest_row][dest_col][0].firstChild.dataset.appropriateBackgroundColor = "gold"
+            game_board[dest_row][dest_col][0].firstChild.dataset.appropriateBorderColor = "gold"
         }
 
     }
 
+    //remove the piece that was jumped
     if(valid && jumped != undefined)
     {
         let jumped_tile = game_board[ jumped[0] ][ jumped[1] ]
@@ -217,7 +205,7 @@ function move_piece(game_board, selected_piece, selected_tile)
         jumped_tile[1] = 0b0000
     }
 
-    selected_piece.style.borderColor = selected_piece.dataset.appropriateBackgroundColor 
+    selected_piece.style.borderColor = selected_piece.dataset.appropriateBorderColor 
 }
 
 //EVENT HANDLER
@@ -246,7 +234,7 @@ function set_selected_piece(e, selected_piece)
     {
         //update the selected piece and set the previously selected piece back to unselected. 
         if(selected_piece != undefined)
-            selected_piece.style.borderColor = selected_piece.dataset.appropriateBackgroundColor
+            selected_piece.style.borderColor = selected_piece.dataset.appropriateBorderColor
 
         if(selected_piece != e.target)
         {
@@ -266,12 +254,19 @@ function create_piece(color, isPromoted)
     piece = document.createElement("div")
     piece.classList.add("piece")
     piece.style.backgroundColor = color
-    piece.dataset.appropriateBackgroundColor = PIECE_BORDER_COLOR 
+
+    if(color == RED_PIECE_COLOR)
+        piece.dataset.appropriateBorderColor = RED_PIECE_BORDER_COLOR 
+    else
+        piece.dataset.appropriateBorderColor = BLACK_PIECE_BORDER_COLOR 
+
     if(isPromoted)
     {
         piece.style.borderColor = "gold"
-        piece.dataset.appropriateBackgroundColor = "gold"
+        piece.dataset.appropriateBorderColor = "gold"
     }
+
+    piece.style.borderColor = piece.dataset.appropriateBorderColor 
 
     return piece
 }

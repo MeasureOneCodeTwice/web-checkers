@@ -13,7 +13,12 @@
 
 #checker-board
 {
-    background-color: blue;
+
+    /* the board it's self shouldn't ever be seen in a normal */
+    /* game, but when increasing the size of the board sometimes */
+    /* slivers of it cas be seen between the borders of tiles */
+
+    background-color: #323232;
     display: flex;
     flex-wrap: wrap;
     border: solid;
@@ -33,11 +38,15 @@
 
 .piece
 {
-    height: 85%;
-    width: 85%;
+    box-sizing: border-box;
+
+    height: 95%;
+    width: 95%;
+
     border-radius: 100%;
     border: dotted;
-    border-width: 0.6vmin;
+    border-width: 0.8vmin;
+
 
     color: white;
     border-color: #323232;
