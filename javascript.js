@@ -42,16 +42,20 @@ function create_board()
     return [mem_board, visual_board];
 }
 
-
-
 //EVENT HANDLER
 //really wish i had pointers for this function.
 function handle_click(e, game_board, selected_piece, selected_tile)
 {
+    if(e.shiftKey)
+    {
+        console.log(can_jump(game_board, [ selected_piece.parentNode.dataset.row, selected_piece.parentNode.dataset.col ] ))
+        return [ selected_piece, selected_tile ]
+    }
+
     //the selected piece will be changed (or not) based on the target of the event
-    selected_piece = set_selected_piece(e, selected_piece)
+    selected_piece = get_selected_piece(e, selected_piece)
     if(selected_piece != undefined)
-        selected_tile = set_selected_tile(e, selected_tile)
+        selected_tile = get_selected_tile(e, selected_tile)
 
      if(selected_piece != undefined && selected_tile != undefined)
      {
@@ -64,31 +68,27 @@ function handle_click(e, game_board, selected_piece, selected_tile)
 
 }
 
-function adjacent_columns(pos)
-{
-    return pos[0] % 2 == 0 ? [ pos[1], +pos[1] + 1 ] : [ pos[1] - 1, pos[1] ]
-}
 
 //checks if a move is a valid non-jump move.
 function valid_non_skip(game_board, origin, dest)
 {
     // 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
-    let orig_full = (game_board[origin[0]][origin[1]][1] & 0b0100) > 0;
-    let dest_full = (game_board[dest[0]][dest[1]][1] & 0b0100) > 0;
+    let orig_full = tile_has_piece(game_board[origin[0]][origin[1]][1]) 
+    let dest_full = tile_has_piece(game_board[dest[0]][dest[1]][1]) 
+
     if(!orig_full || dest_full)
     {
         return false;
     }
 
 
-    let black_piece = (game_board[origin[0]][origin[1]][1] & 0b0010) > 0
-    let is_promoted = (game_board[origin[0]][origin[1]][1] & 0b0001) > 0
+    let piece_info  = game_board[origin[0]][origin[1]][1]
 
     let valid_rows 
-    if(is_promoted)
+    if(is_promoted(piece_info))
         valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
     else 
-        valid_rows = [ +origin[0] + 1 - ( 2 * black_piece) ]
+        valid_rows = [ +origin[0] + 1 - ( 2 * is_black(piece_info)) ]
 
     //determine which colmuns the piece can move to.
     let valid_cols = adjacent_columns(origin)
@@ -97,37 +97,35 @@ function valid_non_skip(game_board, origin, dest)
     let is_valid_row = exists_matching_move(dest[0], valid_rows);
     let is_valid_col = exists_matching_move(dest[1], valid_cols);
 
-    //make sure the column and row fit on the board
-    let off_board = false;
-    off_board = off_board || dest[0] < 0 || dest[0] > game_board.length - 1
-    off_board = off_board || dest[1] < 0 || dest[1] > game_board[0].length - 1
+    return is_valid_col && is_valid_row && on_board(game_board, dest)
+}
 
-    return is_valid_col && is_valid_row && !off_board
+function adjacent_columns(pos)
+{
+    return pos[0] % 2 == 0 ? [ pos[1], +pos[1] + 1 ] : [ pos[1] - 1, pos[1] ]
 }
 
 //checks if a move is a valid single skip
 function valid_skip(game_board, origin, dest)
 {
     // 0b a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
-    let black_piece =  (game_board[origin[0]][origin[1]][1] & 0b010) > 0
-    let is_promoted =  (game_board[origin[0]][origin[1]][1] & 0b001) > 0
+    
+    if(!on_board(game_board, origin))
+        return [ false, undefined ]
+
+    let piece_info = game_board[origin[0]][origin[1]][1]
 
     let valid_cols = [+origin[1] + 1, +origin[1] - 1]
     let valid_rows
-    if(is_promoted) 
+    if(is_promoted(piece_info)) 
         valid_rows = [ +origin[0] + 2, origin[0] - 2 ]
     else 
-        valid_rows = [ +origin[0] + 2 - (4 * black_piece)]
+        valid_rows = [ +origin[0] + 2 - (4 * is_black(piece_info))]
 
     let is_valid_row    = exists_matching_move(dest[0], valid_rows);
     let is_valid_col    = exists_matching_move(dest[1], valid_cols);
 
-    //make sure the column and row fit on the board
-    let off_board = false;
-    off_board = off_board || dest[0] < 0 || dest[0] > game_board.length - 1
-    off_board = off_board || dest[1] < 0 || dest[1] > game_board[0].length - 1
-
-    if(!is_valid_row || !is_valid_col || off_board)
+    if(!is_valid_row || !is_valid_col || !on_board(game_board, dest))
         return [ false, undefined ]
 
 
@@ -143,7 +141,7 @@ function valid_skip(game_board, origin, dest)
     let jumping_tile = game_board[origin[0]][origin[1]][1]
 
     //checking if the there is a piece on the jumped tile && the piece on the jumped tile is not the same colour.
-    jumping_valid_tile = (jumped_tile & 0b0100) > 0 && (jumped_tile & 0b0010) != (jumping_tile & 0b0010)
+    jumping_valid_tile = tile_has_piece(jumped_tile) && is_black(jumped_tile) != is_black(jumping_tile)
 
     return [ jumping_valid_tile, jumped_tile_coords ]    
 }
@@ -221,7 +219,7 @@ function move_piece(game_board, selected_piece, selected_tile)
 //if the global variable selected_tile is undefined and
 //a tile was clicked on this function sets selected_tile to the
 //tile that was clicked on. Otherwise it does nothing.
-function set_selected_tile(e, selected_tile)
+function get_selected_tile(e, selected_tile)
 {
     //don't let the player select a tile with a piece on it or a red tile.
     if( e.target.firstChild == null && 
@@ -232,9 +230,15 @@ function set_selected_tile(e, selected_tile)
     return selected_tile; 
 }
 
+//returns true if the coordinate falls on the board.
+function on_board(board, coordinate)
+{
+    return !( coordinate[0] >= board.length || coordinate[0] < 0 ||
+        coordinate[0][1] >= board[0].length || coordinate[1] < 0  )
+}
 
 //returns the tile that was clicked on (if a tile was clicked on)
-function set_selected_piece(e, selected_piece)
+function get_selected_piece(e, selected_piece)
 {
     //do not change the selected piece 
     if(!e.target.classList.contains("piece"))
@@ -283,11 +287,83 @@ function init_board(board)
             board[row][j][0].appendChild(piece)
             board[row][j][1] = 0b0100
 
+
+
             piece = create_piece(BLACK_PIECE_COLOR) 
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
             board[BOARD_SIZE - row - 1][j][1] = 0b0110
         }
     }
+}
+
+
+//this funciton is meant for use when checking if a piece has a jump over another piece.
+//It takes the piece (origin) and returns the tile it would land on if it jumped over first.
+//origin and jumped MUST be actually adjacent for sencical results.
+function get_landing_pos(origin, jumped)
+{
+    let row_diff = 2 * (jumped[0] - origin[0])
+    let col_diff = jumped[1] - origin[1] 
+
+    if(col_diff == 0)
+        col_diff = 1 - 2 * (origin[0] % 2 == 0)
+
+    return [+origin[0] + row_diff, +origin[1] + col_diff]
+}
+
+//input is the piece info number (the second coordinate of a picece in the game board)
+//the output is if the piece is black.
+function is_black(piece_info)
+{
+    return (piece_info & 0b010) > 0
+}
+
+function is_promoted(piece_info)
+{
+    return (piece_info & 0b001) > 0
+}
+
+function tile_has_piece(piece_info)
+{
+    return (piece_info & 0b100) > 0
+}
+
+//returns true if there is a possible jump the piece at *pos* can make.
+function can_jump(game_board, pos)
+{
+
+    //can't jump without a piece
+    let tile = game_board[ pos[0] ][ pos[1] ][1]
+
+    if(!tile_has_piece(tile))
+        return false;
+
+    let adjacent_cols    = adjacent_columns(pos)
+    let possible_rows    = is_promoted(tile) ? [+pos[0] + 1, pos[0] - 1] : [ +pos[0] + 1 - (2 * is_black(tile))]
+
+    //check if there are any adjacent tiles in the direction the piece can 
+    //jump with opposite the colour.
+    let adjacent_opponents = []
+    
+    for (let i = 0; i < possible_rows.length; i++)
+    {
+        for (let j = 0; j < adjacent_cols.length; j++)
+        {
+            let curr_tile = game_board[ possible_rows[i] ][ adjacent_cols[j] ][1]
+            if( tile_has_piece(curr_tile) && is_black( curr_tile ) != is_black(tile) )
+                adjacent_opponents.push( [possible_rows[i], adjacent_cols[j]] )
+        }
+    }
+
+    for (let i = 0; i < adjacent_opponents.length; i++)
+    {
+        let curr_opponent_pos =  [ adjacent_opponents[i][0],  adjacent_opponents[i][1] ] 
+        let landing_pos = get_landing_pos(pos, curr_opponent_pos)
+        if(on_board(game_board, landing_pos) && !tile_has_piece(game_board[landing_pos[0]][landing_pos[1]][1]))
+            return true;
+    }
+
+    return false;
 }
 
 
