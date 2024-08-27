@@ -44,27 +44,22 @@ function create_board()
 
 //EVENT HANDLER
 //really wish i had pointers for this function.
-function handle_click(e, game_board, selected_piece, selected_tile)
+function handle_click(e, game_board, selected_piece, selected_tile, black_turn)
 {
-    if(e.shiftKey)
-    {
-        console.log(can_jump(game_board, [ selected_piece.parentNode.dataset.row, selected_piece.parentNode.dataset.col ] ))
-        return [ selected_piece, selected_tile ]
-    }
-
     //the selected piece will be changed (or not) based on the target of the event
-    selected_piece = get_selected_piece(e, selected_piece)
+    selected_piece = get_selected_piece(e, selected_piece, black_turn)
     if(selected_piece != undefined)
         selected_tile = get_selected_tile(e, selected_tile)
 
-     if(selected_piece != undefined && selected_tile != undefined)
+     if(selected_piece != undefined && selected_tile != undefined) 
      {
+         black_turn = !black_turn
          move_piece(game_board, selected_piece, selected_tile)
          selected_tile = undefined
          selected_piece = undefined
      }
 
-    return [ selected_piece, selected_tile ]
+    return [ black_turn, selected_piece, selected_tile ]
 
 }
 
@@ -238,10 +233,11 @@ function on_board(board, coordinate)
 }
 
 //returns the tile that was clicked on (if a tile was clicked on)
-function get_selected_piece(e, selected_piece)
+function get_selected_piece(e, selected_piece, black_turn)
 {
-    //do not change the selected piece 
-    if(!e.target.classList.contains("piece"))
+    //do not change the selected piece if piece wasn't clicked or
+    //piece of wrong color was clicked.
+    if(!e.target.classList.contains("piece") || e.target.dataset.isBlack != "" + black_turn)
         return selected_piece
 
     //update the selected piece and set the previously selected piece back to unselected. 
@@ -284,12 +280,14 @@ function init_board(board)
         for (let j = 0; j < BOARD_SIZE / 2; j++) {
 
             let piece = create_piece(RED_PIECE_COLOR) 
+            piece.dataset.isBlack = false
             board[row][j][0].appendChild(piece)
             board[row][j][1] = 0b0100
 
 
 
             piece = create_piece(BLACK_PIECE_COLOR) 
+            piece.dataset.isBlack = true
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
             board[BOARD_SIZE - row - 1][j][1] = 0b0110
         }
@@ -385,12 +383,13 @@ function get_empty_board()
 function main() {
 
     let selected_piece = undefined;
-    let selected_tile   = undefined;
+    let selected_tile  = undefined;
+    let black_turn       = true
 
     let [ game_board, board_object ] = create_board()
 
     board_object.addEventListener("mousedown", (e) => {
-        [ selected_piece, selected_tile ] = handle_click(e, game_board, selected_piece, selected_tile);
+        [ black_turn, selected_piece, selected_tile ] = handle_click(e, game_board, selected_piece, selected_tile, black_turn);
     })
 
     init_board(game_board)
