@@ -36,12 +36,13 @@
     align-items: center;
 }
 
+/* would use box-sizing: border-box, but it makes the number of */ 
+/* border dots inconsistent */
 .piece
 {
-    box-sizing: border-box;
 
-    height: 95%;
-    width: 95%;
+    height: 83%;
+    width: 83%;
 
     border-radius: 100%;
     border: dotted;
