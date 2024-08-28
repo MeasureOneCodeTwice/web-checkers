@@ -71,6 +71,7 @@ function handle_click(e, game_board, turn_state)
 
 
     //if both a move and a tile have been selected, then try to make the move.
+    let chain_jumping = false;
     if(turn_state.selected_piece != undefined && turn_state.selected_tile != undefined)
     {
         let valid_move = is_valid_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
@@ -79,15 +80,33 @@ function handle_click(e, game_board, turn_state)
             move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
             turn_state.black_turn = !turn_state.black_turn
 
+
             if(valid_move.jumped_tile_coords != undefined)
+            {
                 remove_piece(game_board, valid_move.jumped_tile_coords)
 
-            turn_state.force_jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.black_turn)
+                //check for chain jumps. 
+                let dest_tile_pos = [ turn_state.selected_tile.dataset.row, turn_state.selected_tile.dataset.col ]
+                let chain_jumps = possible_jumps(game_board, dest_tile_pos) 
+                chain_jumping = chain_jumps.length > 0  
+                if(chain_jumping) {
+                    turn_state.force_jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
+                    //change turn back.
+                    turn_state.black_turn = !turn_state.black_turn
+                }
+
+            }
+
+            if(!chain_jumping)
+                turn_state.force_jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.black_turn)
+
             turn_state.force_jump_info.checkers_highlighted = true;
             change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
         }
 
-        turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+        if(!chain_jumping)
+            turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+
         turn_state.selected_piece = undefined;
         turn_state.selected_tile = undefined;
     }
@@ -98,10 +117,7 @@ function handle_click(e, game_board, turn_state)
 function change_border_colors(game_board, list_of_position_objects, color)
 {
     if(list_of_position_objects == undefined)
-    {
-        alert("skipping changing background color")
         return
-    }
 
     for(let i = 0; i < list_of_position_objects.length; i++)
     {
