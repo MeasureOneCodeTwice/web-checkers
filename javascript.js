@@ -140,6 +140,7 @@ function handle_jump(game_board, turn_state, valid_move)
             if(chain_jumping) {
                 turn_state.force_jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
                 turn_state.force_jump_info.must_jump = true
+                turn_state.selected_piece.style.borderColor = "white"
                 //change turn back.
             } else {
                 change_turn(game_board, turn_state, valid_move)
@@ -293,7 +294,7 @@ function move_piece(game_board, selected_piece, selected_tile)
     game_board[orig_row][orig_col][1] = 0b0000;
 
     //end of board, should promote to king.
-    if(dest_row == 0 || dest_row == BOARD_SIZE - 1)
+    if( (dest_row == 0 || dest_row == BOARD_SIZE - 1) && !is_promoted(game_board[dest_row][dest_col][1]) )
     {
         game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
         let crown = document.createElement("img")
