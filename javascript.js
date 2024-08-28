@@ -1,8 +1,8 @@
-const BLACK_PIECE_COLOR = "#2f2f2f"
-const RED_PIECE_COLOR = "#fc2419"
+const BLACK_PIECE_COLOR = "#2F2F2F"
+const RED_PIECE_COLOR = "#FC2419"
 const BLACK_PIECE_BORDER_COLOR = "#5f5f5f"
 const RED_PIECE_BORDER_COLOR = "#553535"
-const FORCE_JUMP_HIGHLIGHT_COLOR = "#70FC2A"
+const FORCE_JUMP_HIGHLIGHT_COLOR = "gold"
 const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
 
@@ -98,16 +98,21 @@ function handle_click(e, game_board, turn_state)
             }
 
             if(!chain_jumping)
+            {
                 turn_state.force_jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.black_turn)
-
-            turn_state.force_jump_info.checkers_highlighted = true;
-            change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
+                turn_state.force_jump_info.checkers_highlighted = true;
+                change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
+            }
         }
 
         if(!chain_jumping)
+        {
             turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+            turn_state.selected_piece = undefined;
+        } else {
+            turn_state.selected_piece.style.borderColor = "white"
+        }
 
-        turn_state.selected_piece = undefined;
         turn_state.selected_tile = undefined;
     }
 }
