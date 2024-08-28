@@ -112,6 +112,7 @@ function handle_click(e, game_board, turn_state)
     }
 }
 
+
 //*list_of_position_objects* must be a list of objects with a *piece_coord* field that 
 //is a row and column number
 function change_border_colors(game_board, list_of_position_objects, color)
@@ -259,7 +260,10 @@ function move_piece(game_board, selected_piece, selected_tile)
     if(dest_row == 0 || dest_row == BOARD_SIZE - 1)
     {
         game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
-        game_board[dest_row][dest_col][0].firstChild.dataset.defaultBorderColor = "gold"
+        let crown = document.createElement("img")
+        crown.src = "crown.png"
+        crown.classList.add("crown")
+        game_board[dest_row][dest_col][0].firstChild.appendChild(crown)
     }
 
     //change the border color of the piece to unselected.
@@ -293,16 +297,25 @@ function on_board(board, coordinate)
 //return a new *selected_piece* if it's position matches an element in *valid_pieces*
 function get_selected_piece(e, selected_piece, black_turn, valid_pieces)
 {
+
+    //this handles the case that there is a promoted piece with a crown icon that we
+    //need to be able to click on.
+    let target
+    if(e.target.classList.contains("piece"))
+        target = e.target
+    else
+        target = e.target.parentNode
+
+
     //do not change the selected piece if piece wasn't clicked or
     //piece of wrong color was clicked.
-    if(!e.target.classList.contains("piece") || e.target.dataset.isBlack != "" + black_turn)
+    if( !target.classList.contains("piece") || target.dataset.isBlack != "" + black_turn)
         return selected_piece
-
 
     //check if the current piece matches an element of valid_pieces
     if(valid_pieces.length != 0) {
         let is_valid_piece = false;
-        let piece_coords = [ e.target.parentNode.dataset.row, e.target.parentNode.dataset.col]
+        let piece_coords = [ target.parentNode.dataset.row, target.parentNode.dataset.col]
         for(let i = 0; i < valid_pieces.length; i++)
         {
             let curr_valid_piece = valid_pieces[i].piece_coord
@@ -318,9 +331,9 @@ function get_selected_piece(e, selected_piece, black_turn, valid_pieces)
     if(selected_piece != undefined)
         selected_piece.style.borderColor = selected_piece.dataset.defaultBorderColor
 
-    if(selected_piece != e.target)
+    if(selected_piece != target)
     {
-        selected_piece = e.target
+        selected_piece = target
         selected_piece.style.borderColor = "white"
     } else {
         //clicked on the selected piece so, unselect it.
