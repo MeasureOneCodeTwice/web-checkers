@@ -11,123 +11,149 @@ main()
 function create_board()
 {
 
-    let mem_board    = get_empty_board()
-    let visual_board = document.querySelector("#checker-board")
+    let board_array    = get_empty_board()
+    let board_object = document.querySelector("#checker-board")
     
-    visual_board.style.height = "80vmin"
-    visual_board.style.width = visual_board.style.height 
+    board_object.style.height = "80vmin"
+    board_object.style.width = board_object.style.height 
 
-    let tile_size = "height:" + (80 / BOARD_SIZE) + "vmin; width: " + (80 / BOARD_SIZE) + "vmin; "
+    let tile_size = "height:" + (80 / BOARD_SIZE) +
+        "vmin; width: " + (80 / BOARD_SIZE) + "vmin; "
 
+    //populate the board_object DOM element with tile children
+    //and fill the board_array to reflect the board's state.
     for (let i = 0; i < BOARD_SIZE; i++)
     {
         for (let j = 0; j < BOARD_SIZE; j++)
         {
-            let background_color = "background-color: " + BOARD_COLORS[(i + j ) % 2] + ";";
+            let background_color = "background-color: " +
+                BOARD_COLORS[(i + j ) % 2] + ";";
+            
             let tile = document.createElement("div")
             tile.setAttribute("style", tile_size + background_color)
             tile.classList.add("tile") 
 
+            //we only fill the array with the black tiles as they 
+            //are the ones checkers is played on
             if( ( i + j ) % 2 == 1) {
-                mem_board[i][Math.floor(j / 2)][0] = tile; 
-                mem_board[i][Math.floor(j / 2)][1] = 0; 
+                board_array[i][Math.floor(j / 2)][0] = tile; 
+                board_array[i][Math.floor(j / 2)][1] = 0; 
                 tile.dataset.row = i
                 tile.dataset.col = Math.floor(j / 2)
             } else {
                 tile.dataset.red = true 
             }
 
-            visual_board.appendChild(tile)
+            board_object.appendChild(tile)
         }
     }
-    return [mem_board, visual_board];
+    return [board_array, board_object];
 }
 
 //EVENT HANDLER
 //really wish i had pointers for this function.
-function handle_click(e, game_board, turn_state)
+function handle_click(e, game_board, turn_state, jump_info)
 {
-    //check if user tries to select a new piece or tile to finish turn.
-    turn_state.selected_piece = get_selected_piece(e, turn_state.selected_piece, turn_state.black_turn, turn_state.force_jump_info.possible_jumps)
-    //if we unselect the piece, unselect the tile too
-    if(turn_state.selected_piece == undefined)
-        turn_state.selected_tile = undefined
-    //we just choose a piece, so unselect the highlighted force jump pieces
-    if(turn_state.selected_piece != undefined && turn_state.force_jump_info.checkers_highlighted)
-    {
-        change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, turn_state.selected_piece.dataset.defaultBorderColor)
-        turn_state.force_jump_info.checkers_highlighted = false;
-        turn_state.selected_piece.style.borderColor = "white"
-    }
-
-    //re-highlight the all of the pieces with possible jumps once a piece has be unselected.
-    if(turn_state.selected_piece == undefined && !turn_state.force_jump_info.checkers_highlighted)
-    {
-            turn_state.force_jump_info.checkers_highlighted = true;
-            change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
-    }
+    handle_piece_selection(e, game_board, turn_state, jump_info)
 
     // only let user select a tile to make a move if they have also selected a piece
     if(turn_state.selected_piece != undefined)
         turn_state.selected_tile = get_selected_tile(e, turn_state.selected_tile) 
 
+    handle_move(e, game_board, turn_state, jump_info)
+}
+
+function handle_move(e, game_board, turn_state, jump_info)
+{
 
     //if both a move and a tile have been selected, then try to make the move.
-    if(turn_state.selected_piece != undefined && turn_state.selected_tile != undefined)
-    {
-        //if the piece moves in a valid way, not accounting for force jumps.
-        let valid_move = is_valid_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
-        if(valid_move.is_valid && valid_move.jumping == turn_state.force_jump_info.must_jump) {
-            if(valid_move.jumping) 
-                handle_jump(game_board, turn_state, valid_move)
-            else 
-                handle_move(game_board, turn_state, valid_move)
-        } else {
-            turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
-            turn_state.selected_piece = undefined 
-            turn_state.selected_tile = undefined 
-            //since we unselected the piece, we need to put the force jump colors back.
-            change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
-        }
-            
+    if(turn_state.selected_piece == undefined && turn_state.selected_tile == undefined)
+        return;
+
+    //if the piece moves in a valid way, not accounting for force jumps.
+    let valid_move = is_valid_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
+    if(valid_move.is_valid && valid_move.jumping == jump_info.must_jump) {
+        if(valid_move.jumping) 
+            complete_jump(game_board, turn_state, jump_info, valid_move)
+        else 
+            complete_move(game_board, turn_state, jump_info, valid_move)
+    } else {
+        turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+        turn_state.selected_piece = undefined 
+        turn_state.selected_tile = undefined 
+        //since we unselected the piece, we need to put the force jump colors back.
+        change_border_colors(game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
     }
 }
 
-
-//does all the stuff to change the turn to the other player's turn
-function change_turn(game_board, turn_state, valid_move)
+function handle_piece_selection(e, game_board, turn_state, jump_info)
 {
-        //actually change the turn
-        turn_state.black_turn = !turn_state.black_turn
-    
-        //unselecte moved piece
-        turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
-        turn_state.selected_piece = undefined;
+    //check if user tries to select a new piece or tile to finish turn.
+    turn_state.selected_piece = get_selected_piece(
+        e, turn_state.selected_piece, turn_state.is_black_turn, jump_info.possible_jumps
+    );
 
-        //update the force jump info and highlight force jump pieces.
-        turn_state.force_jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.black_turn)
-        change_border_colors(game_board, turn_state.force_jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
+    //if we unselect the piece, unselect the tile too
+    if(turn_state.selected_piece == undefined)
+        turn_state.selected_tile = undefined
 
 
-        turn_state.force_jump_info.checkers_highlighted = true;
-        turn_state.force_jump_info.must_jump = turn_state.force_jump_info.possible_jumps.length > 0 ;
+    //we just choose a piece, so unselect the highlighted force jump pieces
+    if(turn_state.selected_piece != undefined && jump_info.checkers_highlighted)
+    {
+        change_border_colors(
+            game_board, jump_info.possible_jumps, turn_state.selected_piece.dataset.defaultBorderColor
+        );
+        jump_info.checkers_highlighted = false;
+        turn_state.selected_piece.style.borderColor = "white"
+    }
+
+    //re-highlight the all of the pieces with possible jumps once a piece has been unselected.
+    if(turn_state.selected_piece == undefined && !jump_info.checkers_highlighted)
+    {
+            jump_info.checkers_highlighted = true;
+            change_border_colors(
+                game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR
+            );
+    }
 }
 
-function handle_move(game_board, turn_state, valid_move)
+//does all the stuff to change the turn to the other player's turn
+function change_turn(game_board, turn_state, jump_info, valid_move, )
 {
-    if(!valid_move.jumping && !turn_state.force_jump_info.must_jump)
+    //actually change the turn
+    turn_state.is_black_turn = !turn_state.is_black_turn
+
+    //unselecte moved piece
+    turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+    turn_state.selected_piece = undefined;
+
+    //update the force jump info and highlight force jump pieces.
+    jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.is_black_turn)
+        change_border_colors(game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
+
+
+        jump_info.checkers_highlighted = true;
+        jump_info.must_jump = jump_info.possible_jumps.length > 0 ;
+}
+
+//completes a move 
+function complete_move(game_board, turn_state, jump_info, valid_move, )
+{
+    if(!valid_move.jumping && !jump_info.must_jump)
     {
         move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
-        change_turn(game_board, turn_state, valid_move)
+        change_turn(game_board, turn_state,  jump_info, valid_move)
     }
 
     turn_state.selected_piece = undefined;
     turn_state.selected_tile = undefined;
 }
 
-function handle_jump(game_board, turn_state, valid_move)
+//completes a jump
+function complete_jump(game_board, turn_state, jump_info,  valid_move)
 {
-        if(valid_move.jumping && turn_state.force_jump_info.must_jump)
+        if(valid_move.jumping && jump_info.must_jump)
         {
             move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
             remove_piece(game_board, valid_move.jumped_tile_coords)
@@ -137,13 +163,13 @@ function handle_jump(game_board, turn_state, valid_move)
             let chain_jumps = possible_jumps(game_board, dest_tile_pos) 
             chain_jumping = chain_jumps.length > 0  
 
+            //if we chain jump, then keep the current piece selected.
             if(chain_jumping) {
-                turn_state.force_jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
-                turn_state.force_jump_info.must_jump = true
+                jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
+                jump_info.must_jump = true
                 turn_state.selected_piece.style.borderColor = "white"
-                //change turn back.
             } else {
-                change_turn(game_board, turn_state, valid_move)
+                change_turn(game_board, turn_state, jump_info,  valid_move)
             }
         }
 
@@ -332,7 +358,7 @@ function on_board(board, coordinate)
 //returns the tile that was clicked on (if a tile was clicked on)
 //if a non-empty array is specified as valid_pieces, then the function will only
 //return a new *selected_piece* if it's position matches an element in *valid_pieces*
-function get_selected_piece(e, selected_piece, black_turn, valid_pieces)
+function get_selected_piece(e, selected_piece, is_black_turn, valid_pieces)
 {
 
     //this handles the case that there is a promoted piece with a crown icon that we
@@ -365,7 +391,7 @@ function get_selected_piece(e, selected_piece, black_turn, valid_pieces)
 
 
     //don't let them choose a piece when it isn't their turn
-    if(target.dataset.isBlack != "" + black_turn)
+    if(target.dataset.isBlack != "" + is_black_turn)
         return selected_piece
 
     //update the selected piece and set the previously selected piece back to unselected. 
@@ -533,8 +559,7 @@ function get_empty_board()
 function main()
 {
 
-
-    let force_jump_info = {
+    let jump_info = {
         possible_jumps:  [],
         highlighted_landing_tiles:  [],
         checkers_highlighted:  false,
@@ -544,15 +569,14 @@ function main()
     let turn_state = {
         selected_piece: undefined,
         selected_tile: undefined,
-        black_turn: true,
-        force_jump_info:  force_jump_info ,
+        is_black_turn: true,
     };
 
 
     let [ game_board, board_object ] = create_board()
 
     board_object.addEventListener("mousedown", (e) => {
-        handle_click(e, game_board, turn_state);
+        handle_click(e, game_board, turn_state, jump_info);
     })
 
     init_board(game_board)
