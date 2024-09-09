@@ -3,3 +3,5 @@ It is written using HTML, CSS, JavaScript.
 
 Requirements: 
   Any mordern browser
+
+play at: https://measureonecodetwice.github.io/web-checkers/
