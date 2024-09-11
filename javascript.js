@@ -37,7 +37,8 @@ function create_board()
             //are the ones checkers is played on
             if( ( i + j ) % 2 == 1) {
                 board_array[i][Math.floor(j / 2)][0] = tile; 
-                board_array[i][Math.floor(j / 2)][1] = 0; 
+                board_array[i][Math.floor(j / 2)][1] = empty_tile_info()
+
                 tile.dataset.row = i
                 tile.dataset.col = Math.floor(j / 2)
             } else {
@@ -60,15 +61,15 @@ function handle_click(e, game_board, turn_state, jump_info)
     if(turn_state.selected_piece != undefined)
         turn_state.selected_tile = get_selected_tile(e, turn_state.selected_tile) 
 
-    handle_move(e, game_board, turn_state, jump_info)
+
+    //if both a move and a tile have been selected, then try to make the move.
+    if(turn_state.selected_piece != undefined && turn_state.selected_tile != undefined)
+        handle_move(e, game_board, turn_state, jump_info)
 }
 
 function handle_move(e, game_board, turn_state, jump_info)
 {
 
-    //if both a move and a tile have been selected, then try to make the move.
-    if(turn_state.selected_piece == undefined && turn_state.selected_tile == undefined)
-        return;
 
     //if the piece moves in a valid way, not accounting for force jumps.
     let valid_move = is_valid_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
@@ -193,15 +194,26 @@ function change_border_colors(game_board, list_of_position_objects, color)
 function remove_piece(game_board, coords)
 {
     game_board[coords[0]][coords[1]][0].removeChild( game_board[coords[0]][coords[1]][0].firstChild )
-    game_board[coords[0]][coords[1]][1] = 0b0000
+    let tile_details = game_board[coords[0]][coords[1]][1]
+    tile_details.has_piece = false;
+    tile_details.piece_is_black = undefined;
+    tile_details.piece_is_promoted = undefined;
+    
+}
+
+function empty_tile_info()
+{
+    return { has_piece: false,
+            piece_is_black: undefined,
+            piece_is_promoted: undefined, };
 }
 
 //checks if a move is a valid non-jump move.
 function valid_non_skip(game_board, origin, dest)
 {
     // 0 a b c. bit a is if there is a piece, bit b is if it is black bit c is if it's promoted.
-    let orig_full = tile_has_piece(game_board[origin[0]][origin[1]][1]) 
-    let dest_full = tile_has_piece(game_board[dest[0]][dest[1]][1]) 
+    let orig_full = game_board[origin[0]][origin[1]][1].has_piece 
+    let dest_full = game_board[dest[0]][dest[1]][1].has_piece 
 
     if(!orig_full || dest_full)
     {
@@ -212,10 +224,10 @@ function valid_non_skip(game_board, origin, dest)
     let piece_info  = game_board[origin[0]][origin[1]][1]
 
     let valid_rows 
-    if(is_promoted(piece_info))
+    if(piece_info.has_promoted_piece)
         valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
     else 
-        valid_rows = [ +origin[0] + 1 - ( 2 * is_black(piece_info)) ]
+        valid_rows = [ +origin[0] + 1 - ( 2 * piece_info.has_black_piece) ]
 
     //determine which colmuns the piece can move to.
     let valid_cols = adjacent_columns(origin)
@@ -242,10 +254,10 @@ function valid_skip(game_board, origin, dest)
 
     let valid_cols = [+origin[1] + 1, +origin[1] - 1]
     let valid_rows
-    if(is_promoted(piece_info)) 
+    if(piece_info.has_promoted_piece) 
         valid_rows = [ +origin[0] + 2, origin[0] - 2 ]
     else 
-        valid_rows = [ +origin[0] + 2 - (4 * is_black(piece_info))]
+        valid_rows = [ +origin[0] + 2 - (4 * piece_info.has_black_piece)]
 
     let is_valid_row    = exists_matching_move(dest[0], valid_rows);
     let is_valid_col    = exists_matching_move(dest[1], valid_cols);
@@ -266,7 +278,7 @@ function valid_skip(game_board, origin, dest)
     let jumping_tile = game_board[origin[0]][origin[1]][1]
 
     //checking if the there is a piece on the jumped tile && the piece on the jumped tile is not the same colour.
-    jumping_valid_tile = tile_has_piece(jumped_tile) && is_black(jumped_tile) != is_black(jumping_tile)
+    jumping_valid_tile = jumped_tile.has_piece && jumped_tile.has_black_piece != jumping_tile.has_black_piece
 
     return { is_valid: jumping_valid_tile, jumped_tile_coords: jumped_tile_coords }    
 }
@@ -317,12 +329,12 @@ function move_piece(game_board, selected_piece, selected_tile)
     selected_tile.appendChild(selected_piece)
 
     game_board[dest_row][dest_col][1] = game_board[orig_row][orig_col][1]; 
-    game_board[orig_row][orig_col][1] = 0b0000;
+    game_board[orig_row][orig_col][1] = empty_tile_info();
 
     //end of board, should promote to king.
-    if( (dest_row == 0 || dest_row == BOARD_SIZE - 1) && !is_promoted(game_board[dest_row][dest_col][1]) )
+    if( (dest_row == 0 || dest_row == BOARD_SIZE - 1) && !game_board.has_promoted_piece[dest_row][dest_col][1] )
     {
-        game_board[dest_row][dest_col][1] = game_board[dest_row][dest_col][1] | 0b0001 
+        game_board[dest_row][dest_col][1].piece_is_promoted = true;
         let crown = document.createElement("img")
         crown.src = "crown.png"
         crown.classList.add("crown")
@@ -436,14 +448,20 @@ function init_board(board)
             let piece = create_piece(RED_PIECE_COLOR) 
             piece.dataset.isBlack = false
             board[row][j][0].appendChild(piece)
-            board[row][j][1] = 0b0100
+            let tile_info = empty_tile_info() 
+            tile_info.has_piece = true;
+            tile_info.has_black_piece = false;
+            board[row][j][1] = tile_info
 
 
 
             piece = create_piece(BLACK_PIECE_COLOR) 
             piece.dataset.isBlack = true
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
-            board[BOARD_SIZE - row - 1][j][1] = 0b0110
+            tile_info = empty_tile_info() 
+            tile_info.has_piece = true;
+            tile_info.has_black_piece = true;
+            board[BOARD_SIZE - row - 1][j][1] = tile_info
         }
     }
 }
@@ -463,23 +481,6 @@ function get_landing_pos(origin, jumped)
     return [+origin[0] + row_diff, +origin[1] + col_diff]
 }
 
-//input is the piece info number (the second coordinate of a picece in the game board)
-//the output is if the piece is black.
-function is_black(piece_info)
-{
-    return (piece_info & 0b0010) > 0
-}
-
-function is_promoted(piece_info)
-{
-    return (piece_info & 0b001) > 0
-}
-
-function tile_has_piece(piece_info)
-{
-    return (piece_info & 0b0100) > 0
-}
-
 //returns true if there is a possible jump the piece at *pos* can make.
 function possible_jumps(game_board, pos)
 {
@@ -487,11 +488,11 @@ function possible_jumps(game_board, pos)
     //can't jump without a piece
     let tile = game_board[ pos[0] ][ pos[1] ][1]
 
-    if(!tile_has_piece(tile))
+    if(!tile.has_piece)
         return [];
 
     let adjacent_cols    = adjacent_columns(pos)
-    let possible_rows    = is_promoted(tile) ? [+pos[0] + 1, pos[0] - 1] : [ +pos[0] + 1 - (2 * is_black(tile))]
+    let possible_rows    = tile.has_promoted_piece ? [+pos[0] + 1, pos[0] - 1] : [ +pos[0] + 1 - (2 * tile.has_black_piece)]
 
     //check if there are any adjacent tiles in the direction the piece can 
     //jump with opposite the colour.
@@ -505,7 +506,7 @@ function possible_jumps(game_board, pos)
                 continue;
 
             let curr_tile = game_board[ possible_rows[i] ][ adjacent_cols[j] ][1]
-            if( tile_has_piece(curr_tile) && is_black( curr_tile ) != is_black(tile) )
+            if( curr_tile.has_piece && curr_tile.has_black_piece != tile.has_black_piece )
                 adjacent_opponents.push( [possible_rows[i], adjacent_cols[j]] )
         }
     }
@@ -515,7 +516,7 @@ function possible_jumps(game_board, pos)
     {
         let curr_opponent_pos =  [ adjacent_opponents[i][0],  adjacent_opponents[i][1] ] 
         let landing_pos = get_landing_pos(pos, curr_opponent_pos)
-        if(on_board(game_board, landing_pos) && !tile_has_piece(game_board[landing_pos[0]][landing_pos[1]][1]))
+        if(on_board(game_board, landing_pos) && !game_board[landing_pos[0]][landing_pos[1]][1].has_piece)
             jumps_possible.push(landing_pos)
     }
 
@@ -529,7 +530,7 @@ function all_possible_jumps(game_board, black_move)
     {
         for( let col = 0; col < game_board[0].length; col++)
         {
-            if(is_black(game_board[ row ][ col ][1]) != black_move)
+            if(game_board[ row ][ col ][1].has_black_piece != black_move)
                 continue;
 
             let landing_tiles = possible_jumps( game_board, [row, col] )
@@ -550,7 +551,7 @@ function get_empty_board()
     {
         board[i] = new Array(BOARD_SIZE / 2)
         for (let j = 0; j < BOARD_SIZE / 2; j++)
-            board[i][j] = [undefined, 0b0000]
+            board[i][j] = [undefined, undefined]
     }
 
     return board;
