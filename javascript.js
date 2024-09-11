@@ -72,56 +72,49 @@ function handle_click(e, game_board, turn_state, jump_info)
 
 function handle_move(e, game_board, turn_state, jump_info)
 {
-
-
     //if the piece moves in a valid way, not accounting for force jumps.
-    let move = evaluate_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
-    if(move.is_valid && move.jumping == jump_info.must_jump) {
-        if(move.jumping) 
-            complete_jump(game_board, turn_state, jump_info, move)
+    let move = evaluate_move(game_board, turn_state.selected_piece.parentNode , turn_state.selected_tile)
+    if(move.is_valid && move.is_jump == jump_info.must_jump) {
+        if(move.is_jump) 
+            execute_jump(game_board, turn_state, jump_info, move)
         else 
-            complete_move(game_board, turn_state, jump_info, move)
+            execute_move(game_board, turn_state, jump_info, move)
     } else {
-        turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
+        //unselect piece and tile, and show force jump outlines again
+        turn_state.selected_piece.style.borderColor = 
+            turn_state.selected_piece.dataset.defaultBorderColor
+
         turn_state.selected_piece = undefined 
         turn_state.selected_tile = undefined 
-        //since we unselected the piece, we need to put the force jump colors back.
         change_border_colors(game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
     }
 }
 
 function handle_piece_selection(e, game_board, turn_state, jump_info)
 {
-    //check if user tries to select a new piece or tile to finish turn.
-    turn_state.selected_piece = get_selected_piece(
+    turn_state.selected_piece = get_valid_selected_piece(
         e, turn_state.selected_piece, turn_state.is_black_turn, jump_info.possible_jumps
     );
 
-    //if we unselect the piece, unselect the tile too
+    //if we have unselected the piece, unselect the tile too
+    //and return force jump outlines.
     if(turn_state.selected_piece == undefined)
-        turn_state.selected_tile = undefined
-
-
-    //we just choose a piece, so unselect the highlighted force jump pieces
-    if(turn_state.selected_piece != undefined)
     {
+        turn_state.selected_tile = undefined
+        change_border_colors(
+            game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR
+        );
+    } else {
+        //we just choose a piece, so unselect the highlighted force jump pieces
         change_border_colors(
             game_board, jump_info.possible_jumps, turn_state.selected_piece.dataset.defaultBorderColor
         );
         turn_state.selected_piece.style.borderColor = "white"
     }
-
-    //re-highlight the all of the pieces with possible jumps once a piece has been unselected.
-    if(turn_state.selected_piece == undefined)
-    {
-            change_border_colors(
-                game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR
-            );
-    }
 }
 
 //does all the stuff to change the turn to the other player's turn
-function change_turn(game_board, turn_state, jump_info, valid_move, )
+function change_turn(game_board, turn_state, jump_info, valid_move)
 {
     //actually change the turn
     turn_state.is_black_turn = !turn_state.is_black_turn
@@ -137,7 +130,7 @@ function change_turn(game_board, turn_state, jump_info, valid_move, )
 }
 
 //completes a move 
-function complete_move(game_board, turn_state, jump_info, valid_move, )
+function execute_move(game_board, turn_state, jump_info, valid_move, )
 {
     if(!valid_move.jumping && !jump_info.must_jump)
     {
@@ -150,29 +143,26 @@ function complete_move(game_board, turn_state, jump_info, valid_move, )
 }
 
 //completes a jump
-function complete_jump(game_board, turn_state, jump_info,  move)
+function execute_jump(game_board, turn_state, jump_info,  move)
 {
-        if(move.jumping && jump_info.must_jump)
-        {
-            move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
-            remove_piece(game_board, move.jumped_tile_coords)
+    move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
+    remove_piece(game_board, move.jumped_tile_coords)
 
-            //check for chain jumps. 
-            let dest_tile_pos = [ turn_state.selected_tile.dataset.row, turn_state.selected_tile.dataset.col ]
-            let chain_jumps = possible_jumps(game_board, dest_tile_pos) 
-            chain_jumping = chain_jumps.length > 0  
+    //check for chain jumps. 
+    let dest_tile_pos = [ turn_state.selected_tile.dataset.row, turn_state.selected_tile.dataset.col ]
+    let chain_jumps = possible_jumps(game_board, dest_tile_pos) 
+    chain_jumping = chain_jumps.length > 0  
 
-            //if we chain jump, then keep the current piece selected.
-            if(chain_jumping) {
-                jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
-                jump_info.must_jump = true
-                turn_state.selected_piece.style.borderColor = "white"
-            } else {
-                change_turn(game_board, turn_state, jump_info,  move)
-            }
-        }
+    //if we chain jump, then keep the current piece selected.
+    if(chain_jumping) {
+        jump_info.possible_jumps = [ { piece_coord: dest_tile_pos, landing_positions: chain_jumps } ]
+        jump_info.must_jump = true
+        turn_state.selected_piece.style.borderColor = "white"
+    } else {
+        change_turn(game_board, turn_state, jump_info,  move)
+    }
 
-        turn_state.selected_tile = undefined;
+    turn_state.selected_tile = undefined;
 }
 
 //*list_of_position_objects* must be a list of objects with a *piece_coord* field that 
@@ -193,7 +183,6 @@ function remove_piece(game_board, coords)
 {
     game_board[coords[0]][coords[1]][0].removeChild( game_board[coords[0]][coords[1]][0].firstChild )
     game_board[coords[0]][coords[1]][1] = empty_tile_info()
-    
 }
 
 function empty_tile_info()
@@ -202,6 +191,8 @@ function empty_tile_info()
             piece_is_black: undefined,
             piece_is_promoted: undefined, };
 }
+
+
 
 //checks if a move is a valid non-jump move.
 function valid_non_skip(game_board, origin, dest)
@@ -239,11 +230,11 @@ function adjacent_columns(pos)
     return pos[0] % 2 == 0 ? [ pos[1], +pos[1] + 1 ] : [ pos[1] - 1, pos[1] ]
 }
 
-//checks if a move is a valid single skip
-function valid_skip(game_board, origin, dest)
+//checks if a move is a valid skip
+function valid_skip_destination(game_board, origin, dest)
 {
     if(!on_board(game_board, origin))
-        return { is_valid:  false }
+        return false;
 
     let piece_info = game_board[origin[0]][origin[1]][1]
 
@@ -257,9 +248,13 @@ function valid_skip(game_board, origin, dest)
     let is_valid_row    = exists_matching_move(dest[0], valid_rows);
     let is_valid_col    = exists_matching_move(dest[1], valid_cols);
 
-    if(!is_valid_row || !is_valid_col || !on_board(game_board, dest))
-        return { is_valid:  false }
+    return is_valid_row && is_valid_col && on_board(game_board, dest)
+}
 
+//returns the coordinates of the tile that was skipped. If not passing in an origin
+//and dest validated by valid_skip_destination results are undefined.
+function get_skipped_tile_coords(game_board, origin, dest)
+{
 
     //check the tile we are jumping over has a piece of the opposite colour
     let hor_dir = (dest[1] - origin[1]) / Math.abs(dest[1] - origin[1])
@@ -268,17 +263,11 @@ function valid_skip(game_board, origin, dest)
 
     let ver_dir = (dest[0] - origin[0]) / Math.abs(dest[0] - origin[0])
     let jumped_tile_coords = [+origin[0] + +ver_dir, jumped_col] 
-
-    let jumped_tile = game_board[jumped_tile_coords[0]][jumped_tile_coords[1]][1]
-    let jumping_tile = game_board[origin[0]][origin[1]][1]
-
-    //checking if the there is a piece on the jumped tile && the piece on the jumped tile is not the same colour.
-    jumping_valid_tile = jumped_tile.has_piece && jumped_tile.piece_is_black != jumping_tile.piece_is_black
-
-    return { is_valid: jumping_valid_tile, jumped_tile_coords: jumped_tile_coords }    
+    return jumped_tile_coords
 }
 
 function exists_matching_move(testing, valid_choices)
+
 {
     for (let i = 0; i < valid_choices.length; i++) {
         if(testing == valid_choices[i]) {
@@ -288,23 +277,33 @@ function exists_matching_move(testing, valid_choices)
     return false;
 }
 
-//checks if a move is valid and returns an array.
-//the first element is if the move is valid. 
-//the second is the tile that was skipped over if the move
-//was a skip
-function evaluate_move(game_board, piece, dest_tile)
+//checks if a move is valid and returns an object.
+//indicating if the move is valid, if it was a jump, 
+//and tile that was skipped over 
+function evaluate_move(game_board, orig_tile, dest_tile)
 {
-    let origin_tile = piece.parentNode
-    let origin = [origin_tile.dataset.row, origin_tile.dataset.col]
+    let origin = [orig_tile.dataset.row, orig_tile.dataset.col]
     let dest   = [dest_tile.dataset.row, dest_tile.dataset.col]
 
+    let result = { is_valid: false, is_jump: false, jumped_tile_coords: undefined };
     if(valid_non_skip(game_board, origin, dest)) {
-        return  { is_valid: true, jumping: false,}
-    } else {
-        let valid_jump = valid_skip(game_board, origin, dest)
-        valid_jump.jumping = true
-        return valid_jump
+        result.is_valid = true;
+        result.is_jump  = false;
+
+    } else if(valid_skip_destination(game_board, origin, dest)) {
+
+        let jumped_tile_coords = get_skipped_tile_coords(game_board, origin, dest)
+        let jumped_tile_info = game_board[jumped_tile_coords[0]][jumped_tile_coords [1]][1]
+        let piece_is_black = orig_tile.firstChild.dataset.isBlack
+        if(jumped_tile_info.has_piece && jumped_tile_info.piece_is_black != piece_is_black)
+        {
+            result.is_valid = true;
+            result.is_jump = true;
+            result.jumped_tile_coords = jumped_tile_coords;
+        }
     }
+
+    return  result;
 }
 
 //EVENT HANDLER
@@ -340,10 +339,7 @@ function move_piece(game_board, selected_piece, selected_tile)
     selected_piece.style.borderColor = selected_piece.dataset.defaultBorderColor 
 }
 
-//EVENT HANDLER
-//if the global variable selected_tile is undefined and
-//a tile was clicked on this function sets selected_tile to the
-//tile that was clicked on. Otherwise it does nothing.
+
 function get_selected_tile(e, selected_tile)
 {
     //don't let the player select a tile with a piece on it or a red tile.
@@ -365,7 +361,7 @@ function on_board(board, coordinate)
 //returns the tile that was clicked on (if a tile was clicked on)
 //if a non-empty array is specified as valid_pieces, then the function will only
 //return a new *selected_piece* if it's position matches an element in *valid_pieces*
-function get_selected_piece(e, selected_piece, is_black_turn, valid_pieces)
+function get_valid_selected_piece(e, selected_piece, is_black_turn, valid_pieces)
 {
 
     //this handles the case that there is a promoted piece with a crown icon that we
@@ -444,8 +440,9 @@ function init_board(board)
             piece.dataset.isBlack = false
             board[row][j][0].appendChild(piece)
             let tile_info = empty_tile_info() 
-            tile_info.has_piece = true;
-            tile_info.piece_is_black = false;
+            tile_info.has_piece         = true;
+            tile_info.piece_is_black    = false;
+            tile_info.piece_is_promoted = false;
             board[row][j][1] = tile_info
 
 
@@ -454,8 +451,9 @@ function init_board(board)
             piece.dataset.isBlack = true
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
             tile_info = empty_tile_info() 
-            tile_info.has_piece = true;
-            tile_info.piece_is_black = true;
+            tile_info.has_piece         = true;
+            tile_info.piece_is_black    = true;
+            tile_info.piece_is_promoted = false;
             board[BOARD_SIZE - row - 1][j][1] = tile_info
         }
     }
