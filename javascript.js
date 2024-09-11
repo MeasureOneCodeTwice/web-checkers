@@ -5,8 +5,18 @@ const RED_PIECE_BORDER_COLOR = "#553535"
 const FORCE_JUMP_HIGHLIGHT_COLOR = "gold"
 const BOARD_SIZE = 8;
 const BOARD_COLORS = [ "red", "black" ]
+const BOARD_PERCENT_OF_SCREEN = 80 //what percent of the screen should the board fit to
 
 main()
+
+function create_tile(color)
+{
+    let tile_size = "height:" + (BOARD_PERCENT_OF_SCREEN  / BOARD_SIZE) +
+        "vmin; width: " + (BOARD_PERCENT_OF_SCREEN / BOARD_SIZE) + "vmin; "
+    let tile = document.createElement("div")
+    tile.setAttribute("style", tile_size + "background-color: " + color)
+    return tile
+}
 
 function create_board()
 {
@@ -17,20 +27,13 @@ function create_board()
     board_object.style.height = "80vmin"
     board_object.style.width = board_object.style.height 
 
-    let tile_size = "height:" + (80 / BOARD_SIZE) +
-        "vmin; width: " + (80 / BOARD_SIZE) + "vmin; "
 
     //populate the board_object DOM element with tile children
     //and fill the board_array to reflect the board's state.
-    for (let i = 0; i < BOARD_SIZE; i++)
-    {
-        for (let j = 0; j < BOARD_SIZE; j++)
-        {
-            let background_color = "background-color: " +
-                BOARD_COLORS[(i + j ) % 2] + ";";
-            
-            let tile = document.createElement("div")
-            tile.setAttribute("style", tile_size + background_color)
+    for (let i = 0; i < BOARD_SIZE; i++) {
+        for (let j = 0; j < BOARD_SIZE; j++) {
+
+            let tile = create_tile(BOARD_COLORS[(i + j ) % 2])
             tile.classList.add("tile") 
 
             //we only fill the array with the black tiles as they 
@@ -72,12 +75,12 @@ function handle_move(e, game_board, turn_state, jump_info)
 
 
     //if the piece moves in a valid way, not accounting for force jumps.
-    let valid_move = is_valid_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
-    if(valid_move.is_valid && valid_move.jumping == jump_info.must_jump) {
-        if(valid_move.jumping) 
-            complete_jump(game_board, turn_state, jump_info, valid_move)
+    let move = evaluate_move(game_board, turn_state.selected_piece, turn_state.selected_tile)
+    if(move.is_valid && move.jumping == jump_info.must_jump) {
+        if(move.jumping) 
+            complete_jump(game_board, turn_state, jump_info, move)
         else 
-            complete_move(game_board, turn_state, jump_info, valid_move)
+            complete_move(game_board, turn_state, jump_info, move)
     } else {
         turn_state.selected_piece.style.borderColor = turn_state.selected_piece.dataset.defaultBorderColor
         turn_state.selected_piece = undefined 
@@ -100,19 +103,17 @@ function handle_piece_selection(e, game_board, turn_state, jump_info)
 
 
     //we just choose a piece, so unselect the highlighted force jump pieces
-    if(turn_state.selected_piece != undefined && jump_info.checkers_highlighted)
+    if(turn_state.selected_piece != undefined)
     {
         change_border_colors(
             game_board, jump_info.possible_jumps, turn_state.selected_piece.dataset.defaultBorderColor
         );
-        jump_info.checkers_highlighted = false;
         turn_state.selected_piece.style.borderColor = "white"
     }
 
     //re-highlight the all of the pieces with possible jumps once a piece has been unselected.
-    if(turn_state.selected_piece == undefined && !jump_info.checkers_highlighted)
+    if(turn_state.selected_piece == undefined)
     {
-            jump_info.checkers_highlighted = true;
             change_border_colors(
                 game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR
             );
@@ -131,11 +132,8 @@ function change_turn(game_board, turn_state, jump_info, valid_move, )
 
     //update the force jump info and highlight force jump pieces.
     jump_info.possible_jumps = all_possible_jumps(game_board, turn_state.is_black_turn)
-        change_border_colors(game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
-
-
-        jump_info.checkers_highlighted = true;
-        jump_info.must_jump = jump_info.possible_jumps.length > 0 ;
+    change_border_colors(game_board, jump_info.possible_jumps, FORCE_JUMP_HIGHLIGHT_COLOR)
+    jump_info.must_jump = jump_info.possible_jumps.length > 0 ;
 }
 
 //completes a move 
@@ -152,12 +150,12 @@ function complete_move(game_board, turn_state, jump_info, valid_move, )
 }
 
 //completes a jump
-function complete_jump(game_board, turn_state, jump_info,  valid_move)
+function complete_jump(game_board, turn_state, jump_info,  move)
 {
-        if(valid_move.jumping && jump_info.must_jump)
+        if(move.jumping && jump_info.must_jump)
         {
             move_piece(game_board, turn_state.selected_piece, turn_state.selected_tile)
-            remove_piece(game_board, valid_move.jumped_tile_coords)
+            remove_piece(game_board, move.jumped_tile_coords)
 
             //check for chain jumps. 
             let dest_tile_pos = [ turn_state.selected_tile.dataset.row, turn_state.selected_tile.dataset.col ]
@@ -170,7 +168,7 @@ function complete_jump(game_board, turn_state, jump_info,  valid_move)
                 jump_info.must_jump = true
                 turn_state.selected_piece.style.borderColor = "white"
             } else {
-                change_turn(game_board, turn_state, jump_info,  valid_move)
+                change_turn(game_board, turn_state, jump_info,  move)
             }
         }
 
@@ -194,10 +192,7 @@ function change_border_colors(game_board, list_of_position_objects, color)
 function remove_piece(game_board, coords)
 {
     game_board[coords[0]][coords[1]][0].removeChild( game_board[coords[0]][coords[1]][0].firstChild )
-    let tile_details = game_board[coords[0]][coords[1]][1]
-    tile_details.has_piece = false;
-    tile_details.piece_is_black = undefined;
-    tile_details.piece_is_promoted = undefined;
+    game_board[coords[0]][coords[1]][1] = empty_tile_info()
     
 }
 
@@ -224,10 +219,10 @@ function valid_non_skip(game_board, origin, dest)
     let piece_info  = game_board[origin[0]][origin[1]][1]
 
     let valid_rows 
-    if(piece_info.has_promoted_piece)
+    if(piece_info.piece_is_promoted)
         valid_rows = [ +origin[0] - 1, +origin[0] + 1 ]
     else 
-        valid_rows = [ +origin[0] + 1 - ( 2 * piece_info.has_black_piece) ]
+        valid_rows = [ +origin[0] + 1 - ( 2 * piece_info.piece_is_black) ]
 
     //determine which colmuns the piece can move to.
     let valid_cols = adjacent_columns(origin)
@@ -254,10 +249,10 @@ function valid_skip(game_board, origin, dest)
 
     let valid_cols = [+origin[1] + 1, +origin[1] - 1]
     let valid_rows
-    if(piece_info.has_promoted_piece) 
+    if(piece_info.piece_is_promoted) 
         valid_rows = [ +origin[0] + 2, origin[0] - 2 ]
     else 
-        valid_rows = [ +origin[0] + 2 - (4 * piece_info.has_black_piece)]
+        valid_rows = [ +origin[0] + 2 - (4 * piece_info.piece_is_black)]
 
     let is_valid_row    = exists_matching_move(dest[0], valid_rows);
     let is_valid_col    = exists_matching_move(dest[1], valid_cols);
@@ -278,7 +273,7 @@ function valid_skip(game_board, origin, dest)
     let jumping_tile = game_board[origin[0]][origin[1]][1]
 
     //checking if the there is a piece on the jumped tile && the piece on the jumped tile is not the same colour.
-    jumping_valid_tile = jumped_tile.has_piece && jumped_tile.has_black_piece != jumping_tile.has_black_piece
+    jumping_valid_tile = jumped_tile.has_piece && jumped_tile.piece_is_black != jumping_tile.piece_is_black
 
     return { is_valid: jumping_valid_tile, jumped_tile_coords: jumped_tile_coords }    
 }
@@ -297,7 +292,7 @@ function exists_matching_move(testing, valid_choices)
 //the first element is if the move is valid. 
 //the second is the tile that was skipped over if the move
 //was a skip
-function is_valid_move(game_board, piece, dest_tile)
+function evaluate_move(game_board, piece, dest_tile)
 {
     let origin_tile = piece.parentNode
     let origin = [origin_tile.dataset.row, origin_tile.dataset.col]
@@ -332,7 +327,7 @@ function move_piece(game_board, selected_piece, selected_tile)
     game_board[orig_row][orig_col][1] = empty_tile_info();
 
     //end of board, should promote to king.
-    if( (dest_row == 0 || dest_row == BOARD_SIZE - 1) && !game_board.has_promoted_piece[dest_row][dest_col][1] )
+    if( (dest_row == 0 || dest_row == BOARD_SIZE - 1) && !game_board[dest_row][dest_col][1].piece_is_promoted )
     {
         game_board[dest_row][dest_col][1].piece_is_promoted = true;
         let crown = document.createElement("img")
@@ -450,7 +445,7 @@ function init_board(board)
             board[row][j][0].appendChild(piece)
             let tile_info = empty_tile_info() 
             tile_info.has_piece = true;
-            tile_info.has_black_piece = false;
+            tile_info.piece_is_black = false;
             board[row][j][1] = tile_info
 
 
@@ -460,7 +455,7 @@ function init_board(board)
             board[BOARD_SIZE - row - 1][j][0].appendChild(piece)
             tile_info = empty_tile_info() 
             tile_info.has_piece = true;
-            tile_info.has_black_piece = true;
+            tile_info.piece_is_black = true;
             board[BOARD_SIZE - row - 1][j][1] = tile_info
         }
     }
@@ -484,15 +479,14 @@ function get_landing_pos(origin, jumped)
 //returns true if there is a possible jump the piece at *pos* can make.
 function possible_jumps(game_board, pos)
 {
-
-    //can't jump without a piece
     let tile = game_board[ pos[0] ][ pos[1] ][1]
 
+    //can't jump without a piece
     if(!tile.has_piece)
         return [];
 
     let adjacent_cols    = adjacent_columns(pos)
-    let possible_rows    = tile.has_promoted_piece ? [+pos[0] + 1, pos[0] - 1] : [ +pos[0] + 1 - (2 * tile.has_black_piece)]
+    let possible_rows    = tile.piece_is_promoted ? [+pos[0] + 1, pos[0] - 1] : [ +pos[0] + 1 - (2 * tile.piece_is_black)]
 
     //check if there are any adjacent tiles in the direction the piece can 
     //jump with opposite the colour.
@@ -506,7 +500,7 @@ function possible_jumps(game_board, pos)
                 continue;
 
             let curr_tile = game_board[ possible_rows[i] ][ adjacent_cols[j] ][1]
-            if( curr_tile.has_piece && curr_tile.has_black_piece != tile.has_black_piece )
+            if( curr_tile.has_piece && curr_tile.piece_is_black != tile.piece_is_black )
                 adjacent_opponents.push( [possible_rows[i], adjacent_cols[j]] )
         }
     }
@@ -530,7 +524,7 @@ function all_possible_jumps(game_board, black_move)
     {
         for( let col = 0; col < game_board[0].length; col++)
         {
-            if(game_board[ row ][ col ][1].has_black_piece != black_move)
+            if(game_board[ row ][ col ][1].piece_is_black != black_move)
                 continue;
 
             let landing_tiles = possible_jumps( game_board, [row, col] )
@@ -563,7 +557,6 @@ function main()
     let jump_info = {
         possible_jumps:  [],
         highlighted_landing_tiles:  [],
-        checkers_highlighted:  false,
         must_jump: false,
     };
 
