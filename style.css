@@ -11,6 +11,7 @@
     align-items: center;
 }
 
+
 #checker-board
 {
 
@@ -23,6 +24,12 @@
     flex-wrap: wrap;
     border: solid;
     border-color: #323232;
+}
+
+.piece-counter
+{
+    border: solid;
+    margin: 5vmin;
 }
 
 .tile
@@ -60,4 +67,35 @@
 .crown
 {
     height: 60%;
+}
+
+/* board width: 80vmin */ 
+/* each piece counter w/ margin is 17 vmin. */
+/* total: 114 */
+/* since we only display the piece counter when the aspect */
+/* ratio is greater than 1.3/1 or less than 1/1.3 we only */ 
+/* need to make sure the sum of the length is < 130vmin */ 
+
+/* if the screen is tall*/ 
+.piece-counter { display: none; }
+@media (max-aspect-ratio: 1/1.3) {
+    .piece-counter {
+        display: flex;
+        width: 80vmin;
+        height: 13vmin;
+    }
+
+    #website-container {
+        flex-direction: column;
+    }
+}
+
+/* if the screen is wide*/ 
+@media (min-aspect-ratio: 1.3/1) {
+    .piece-counter {
+        display: flex;
+        height: 80vmin;
+        width: 13vmin;
+    }
+
 }
